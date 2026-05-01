@@ -1,30 +1,23 @@
 # AR PC Disassembly Guide
 
-> **3D технологии и виртуална реалност** — курсов проект, ТУ-София, 4 курс.
+> **3D технологии и виртуална реалност**
 
 AR приложение тип **"Ръководство на потребител"**: разпознава 3 маркера (дънна
 платка, графична карта, захранване), показва върху всеки 3D модел на
 съответния PC компонент, и позволява tap-to-disassemble с анимация и панел
 със спецификации.
 
-Покрива минималното изискване (3 маркера + 3 модела) и попада в категорията
-"над-минимална сложност" чрез функционална логика (assemble/disassemble state
-machine), потребителско взаимодействие (tap detection с raycast),
-анимации (eased coroutines), и screen-space HUD overlay със спецификации.
-
----
-
 ## Tech stack
 
-| Слой | Решение |
-|---|---|
-| Engine | Unity **6.4** (6000.4.4f1), Built-In Render Pipeline |
-| AR Framework | **Vuforia Engine 11.4.4** (Image Target tracking) |
-| Target платформа | **iOS** (тествано на iPhone 15 Pro / A17 Pro) |
-| Input | New Input System (`UnityEngine.InputSystem`) |
-| UI | TextMeshPro в Screen Space Overlay Canvas (singleton HUD) |
-| Scripting | C# 9, IL2CPP backend за iOS |
-| Source control | Git + Git LFS (за Vuforia .tgz пакета) |
+| Слой             | Решение                                                   |
+| ---------------- | --------------------------------------------------------- |
+| Engine           | Unity **6.4** (6000.4.4f1), Built-In Render Pipeline      |
+| AR Framework     | **Vuforia Engine 11.4.4** (Image Target tracking)         |
+| Target платформа | **iOS** (тествано на iPhone 15 Pro / A17 Pro)             |
+| Input            | New Input System (`UnityEngine.InputSystem`)              |
+| UI               | TextMeshPro в Screen Space Overlay Canvas (singleton HUD) |
+| Scripting        | C# 9, IL2CPP backend за iOS                               |
+| Source control   | Git + Git LFS (за Vuforia .tgz пакета)                    |
 
 ---
 
@@ -39,50 +32,14 @@ machine), потребителско взаимодействие (tap detection
 - **Screen-space spec HUD** — fade-in панел при дъното на екрана, auto-grow според съдържанието (`ContentSizeFitter` + `VerticalLayoutGroup`), показва име + 6 специфики (form factor, chipset, wattage, и т.н.). Singleton с owner tracking — ако са разглобени два компонента едновременно, панелът показва специфики на последно тапнатия и не се скрива от Hide() на друг компонент.
 - **Tap-to-reassemble** — повторен tap връща частите в assembled state и hide-ва spec panel-а
 
----
-
-## Project structure
-
-```
-3dtvr/
-├── ARPCDisassembly/          ← Unity проектът (submission кандидат)
-│   ├── Assets/
-│   │   ├── Scripts/          ← Runtime C# scripts
-│   │   │   ├── DisassemblablePart.cs    # per-part movement + easing
-│   │   │   ├── ComponentController.cs   # toggle assembled/disassembled
-│   │   │   ├── TapHandler.cs            # raycast от ARCamera
-│   │   │   └── SpecUI.cs                # world-space Canvas с TMP
-│   │   ├── Editor/
-│   │   │   └── PCComponentBuilder.cs    # menu: Tools → Build PC Components
-│   │   ├── Prefabs/Components/          # Auto-generated prefabs (от builder script)
-│   │   ├── Materials/Components/        # Shared materials (PCB, metal, plastic, и т.н.)
-│   │   ├── Resources/VuforiaConfiguration.asset  # Vuforia license + settings
-│   │   ├── StreamingAssets/Vuforia/     # pc-disassembly.dat + .xml (database)
-│   │   └── Scenes/SampleScene.unity     # main AR сцена
-│   ├── ProjectSettings/
-│   └── Packages/
-│       ├── com.ptc.vuforia.engine-11.4.4.tgz   # Vuforia (LFS-tracked)
-│       └── manifest.json
-├── markers/                  ← Source маркери за print (1500x1500 PNG)
-│   ├── motherboard.png       # Vuforia rating 5/5
-│   ├── gpu.png               # Vuforia rating 5/5
-│   ├── psu.png               # Vuforia rating 5/5
-│   └── generate_markers.py   # Python/PIL скрипт за регенериране
-├── .gitignore
-├── .gitattributes            # Git LFS rules (*.tgz → LFS)
-└── README.md                 # този файл
-```
-
----
-
 ## Getting started
 
 ### Изисквания
 
-- macOS (Apple Silicon препоръчително)
+- macOS (Apple Silicon)
 - Unity Hub + Unity Editor **6000.4.4f1** с **iOS Build Support** module
 - Xcode 15+ (за iOS deploy)
-- iPhone (iOS 13+) с USB-C / Lightning кабел
+- iPhone (iOS 15+)
 - Apple ID (free personal team е достатъчен)
 - Vuforia developer акаунт + Basic license key (безплатен) от https://developer.vuforia.com
 - Git + **Git LFS**
@@ -103,27 +60,14 @@ git lfs pull                          # извлича Vuforia .tgz binary от 
 ### Vuforia license key
 
 1. Регистрирай се на https://developer.vuforia.com
-2. **Plan & Licenses** → **Get Basic** (безплатен, watermark на video feed)
-3. Copy License Key (дълъг alphanumeric string)
+2. **Plan & Licenses** → **Get Basic**
+3. Copy License Key
 4. В Unity → отвори `Assets/Resources/VuforiaConfiguration.asset`
-5. Залепи ключа в полето **App License Key**
+5. Постави ключа в полето **App License Key**
 
 ### Marker database
 
 Маркерите вече са включени в проекта (`Assets/StreamingAssets/Vuforia/pc-disassembly.dat`).
-Ако искаш да ги replace-неш със собствени:
-
-1. Vuforia developer portal → **Target Manager** → Add Database (Device type)
-2. Upload PNG-тата от `markers/` папката (width = 0.20 meters)
-3. Download Database (Unity Editor format) → import .unitypackage в проекта
-4. Update `Assets/Resources/VuforiaConfiguration.asset` → Databases → активирай новата
-
-### Печат на маркерите
-
-За реално demo принтирай PNG-тата от `markers/` папката на A4 хартия.
-Препоръчителен размер при печат: ~12cm × 12cm (Vuforia tracking distance ~30-100cm).
-
----
 
 ## Build & Run
 
@@ -131,7 +75,7 @@ git lfs pull                          # извлича Vuforia .tgz binary от 
 
 1. **File → Build Profiles** → избери **iOS** → **Switch Platform** (ако вече не е активна)
 2. **Build** → избери output папка (например `iOSBuild/`)
-3. Unity генерира Xcode workspace (~5-15 мин на Apple Silicon)
+3. Unity генерира Xcode workspace
 4. Xcode се отваря автоматично с проекта
 5. Top-left → проектът → **Signing & Capabilities** → избери Apple ID team
 6. Свържи iPhone с USB
@@ -141,14 +85,12 @@ git lfs pull                          # извлича Vuforia .tgz binary от 
 
 ### macOS Editor (за разработка/демо без iPhone)
 
-1. Open project в Unity Editor
+1. Отвори проекта в Unity Editor
 2. Натисни ▶ Play в toolbar
 3. Webcam-ът на Mac-а става AR камера
 4. Покажи printed маркер (или маркер на втори екран/телефон) → 3D модел изскача
 5. Click с мишката върху модел → disassemble + spec panel
 6. Click отново → assemble
-
----
 
 ## Custom Editor tooling
 
@@ -158,44 +100,14 @@ git lfs pull                          # извлича Vuforia .tgz binary от 
 **Top menu** → **Tools** → **Build PC Components**
 
 Това (re)генерира:
+
 - 3 prefabs в `Assets/Prefabs/Components/` (MotherboardModel, GPUModel, PSUModel)
 - Споделени Materials в `Assets/Materials/Components/`
 - Auto-добавя SpecUI child към всеки prefab
 
-Promenі в дизайна (цветове, scale, disassemble offsets, specs текст) се правят
+Промени в дизайна (цветове, scale, disassemble offsets, specs текст) се правят
 директно в `Assets/Editor/PCComponentBuilder.cs` и след re-run се reflect-ват
-автоматично - scene instances stay linked чрез prefab GUID.
-
----
-
-## Architecture
-
-```
-Scene root
-├── ARCamera (Vuforia)
-│   └── TapHandler.cs             ← screen-space input → raycast → ComponentController.Toggle()
-│
-├── ImageTarget_Motherboard       ← Vuforia ImageTargetBehaviour
-│   └── MotherboardModel          ← prefab instance (от PCComponentBuilder)
-│       ├── ComponentController.cs   ← toggle disassembled state, calls SpecUI.Instance
-│       └── PCB, CPUSocket, RAM_1..4, Capacitor_1..6, ...
-│           └── DisassemblablePart.cs ← per-part assembled/disassembled local positions + easing
-│
-└── [SpecUI Singleton]            ← scene-root, lazy-created on first access
-    └── SpecUI_Canvas             ← Screen Space Overlay Canvas (sortingOrder 100)
-        └── Panel                 ← VerticalLayoutGroup + ContentSizeFitter
-            ├── Title (TMP)
-            ├── TitleUnderline
-            └── Specs             ← VerticalLayoutGroup + ContentSizeFitter
-                └── Row_*         ← HorizontalLayoutGroup, auto-height for wrapped values
-```
-
-Същата структура за `ImageTarget_GPU` и `ImageTarget_PSU`. Оригиналните prefabs
-(от `PCComponentBuilder`) имат `SpecUI` child компонент като остатък от
-предишната world-space архитектура — singleton-ът ги auto-destroy-ва в Awake
-като дубликати, така че visually няма ефект.
-
----
+автоматично - scene instances остават linked чрез prefab GUID.
 
 ## Git LFS info
 
@@ -203,42 +115,18 @@ Vuforia Engine package е 138MB (.tgz) - над GitHub-ското 100MB single f
 лимит. Затова проектът използва **Git LFS** за `*.tgz` файлове (виж
 `.gitattributes`).
 
-GitHub free tier разрешава **1GB LFS storage + 1GB/month bandwidth**, което е
-повече от достатъчно за този проект (138MB stored, рядко updates).
-
-Anyone клониращ репото трябва задължително:
+Всеки Клониращ репото трябва задължително:
 
 ```bash
 brew install git-lfs && git lfs install
-git lfs pull   # ← след clone, иначе .tgz е тиничък pointer файл
+git lfs pull
 ```
 
 Без `git lfs pull` Unity ще покаже грешка
 `com.ptc.vuforia.engine: ... is not a valid package tarball`.
-
----
-
-## Submission
-
-Зипвай само Unity проекта (без `markers/`, `README.md`, `.git/`):
-
-```bash
-cd ARPCDisassembly
-zip -r ../submission.zip Assets ProjectSettings Packages
-```
-
-Final zip съдържа `Assets/`, `ProjectSettings/`, `Packages/` (~140-150MB
-включително Vuforia tarball).
-
----
 
 ## Credits
 
 - **Vuforia Engine** © PTC Inc. - Used under Basic Developer License
 - **Unity 6** © Unity Technologies
 - **TextMeshPro** © Unity Technologies
-- 3D модели и анимации - програмно генерирани от `PCComponentBuilder.cs`
-- Marker images - програмно генерирани от `markers/generate_markers.py`
-
-Курсова работа по дисциплина **3D технологии и виртуална реалност**,
-ТУ-София, факултет ФКСУ.
