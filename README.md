@@ -10,7 +10,7 @@ AR приложение тип **"Ръководство на потребите
 Покрива минималното изискване (3 маркера + 3 модела) и попада в категорията
 "над-минимална сложност" чрез функционална логика (assemble/disassemble state
 machine), потребителско взаимодействие (tap detection с raycast),
-анимации (eased coroutines), и AR UI overlay (world-space Canvas).
+анимации (eased coroutines), и screen-space HUD overlay със спецификации.
 
 ---
 
@@ -22,7 +22,7 @@ machine), потребителско взаимодействие (tap detection
 | AR Framework | **Vuforia Engine 11.4.4** (Image Target tracking) |
 | Target платформа | **iOS** (тествано на iPhone 15 Pro / A17 Pro) |
 | Input | New Input System (`UnityEngine.InputSystem`) |
-| UI | TextMeshPro в World-space Canvas |
+| UI | TextMeshPro в Screen Space Overlay Canvas (singleton HUD) |
 | Scripting | C# 9, IL2CPP backend за iOS |
 | Source control | Git + Git LFS (за Vuforia .tgz пакета) |
 
@@ -36,7 +36,7 @@ machine), потребителско взаимодействие (tap detection
   - **GPU** — PCB + cooler shroud + 2 fans + heatsink + GPU die + 8 VRAM чипа + PCIe edge connector + display ports
   - **PSU** — bottom plate + 4 walls + top fan grille + internal fan + main capacitor + secondary capacitor + heatsink + power switch
 - **Tap-to-disassemble** — раздалечава всички части от assembled позиция към exploded view с easing анимация (Coroutine-based, ~1.2s default)
-- **World-space spec panel** — fade-in над разглобения компонент, показва име + 6 специфики (form factor, chipset, wattage, и т.н.), auto-billboard към камерата
+- **Screen-space spec HUD** — fade-in панел при дъното на екрана, auto-grow според съдържанието (`ContentSizeFitter` + `VerticalLayoutGroup`), показва име + 6 специфики (form factor, chipset, wattage, и т.н.). Singleton с owner tracking — ако са разглобени два компонента едновременно, панелът показва специфики на последно тапнатия и не се скрива от Hide() на друг компонент.
 - **Tap-to-reassemble** — повторен tap връща частите в assembled state и hide-ва spec panel-а
 
 ---
@@ -171,19 +171,29 @@ Promenі в дизайна (цветове, scale, disassemble offsets, specs т
 ## Architecture
 
 ```
-ARCamera (Vuforia)
-└── TapHandler.cs                 ← screen-space input → raycast → ComponentController.Toggle()
-
-ImageTarget_Motherboard           ← Vuforia ImageTargetBehaviour
-└── MotherboardModel              ← prefab instance (от PCComponentBuilder)
-    ├── ComponentController.cs    ← toggle disassembled state
-    ├── PCB, CPUSocket, RAM_1..4, Capacitor_1..6, ...
-    │   └── DisassemblablePart.cs ← per-part assembled/disassembled local positions + easing
-    └── SpecUI                    ← world-space Canvas
-        └── SpecUI.cs             ← билдва Canvas + TMP rows на Awake, billboard в LateUpdate
+Scene root
+├── ARCamera (Vuforia)
+│   └── TapHandler.cs             ← screen-space input → raycast → ComponentController.Toggle()
+│
+├── ImageTarget_Motherboard       ← Vuforia ImageTargetBehaviour
+│   └── MotherboardModel          ← prefab instance (от PCComponentBuilder)
+│       ├── ComponentController.cs   ← toggle disassembled state, calls SpecUI.Instance
+│       └── PCB, CPUSocket, RAM_1..4, Capacitor_1..6, ...
+│           └── DisassemblablePart.cs ← per-part assembled/disassembled local positions + easing
+│
+└── [SpecUI Singleton]            ← scene-root, lazy-created on first access
+    └── SpecUI_Canvas             ← Screen Space Overlay Canvas (sortingOrder 100)
+        └── Panel                 ← VerticalLayoutGroup + ContentSizeFitter
+            ├── Title (TMP)
+            ├── TitleUnderline
+            └── Specs             ← VerticalLayoutGroup + ContentSizeFitter
+                └── Row_*         ← HorizontalLayoutGroup, auto-height for wrapped values
 ```
 
-Същата структура за `ImageTarget_GPU` и `ImageTarget_PSU`.
+Същата структура за `ImageTarget_GPU` и `ImageTarget_PSU`. Оригиналните prefabs
+(от `PCComponentBuilder`) имат `SpecUI` child компонент като остатък от
+предишната world-space архитектура — singleton-ът ги auto-destroy-ва в Awake
+като дубликати, така че visually няма ефект.
 
 ---
 
