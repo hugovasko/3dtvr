@@ -25,15 +25,12 @@ public class ComponentController : MonoBehaviour
     public bool IsDisassembled { get; private set; }
 
     private DisassemblablePart[] parts;
-    private SpecUI specUI;
 
     void Awake()
     {
         // Cache the part list once. GetComponentsInChildren is a deep search — picks up
         // every DisassemblablePart in the prefab, which is exactly what we want.
         parts = GetComponentsInChildren<DisassemblablePart>(includeInactive: true);
-        // SpecUI is optional — components without one just won't show a panel
-        specUI = GetComponentInChildren<SpecUI>(includeInactive: true);
     }
 
     /// <summary>Toggle between assembled and disassembled.</summary>
@@ -48,7 +45,7 @@ public class ComponentController : MonoBehaviour
         if (IsDisassembled) return;
         IsDisassembled = true;
         foreach (var p in parts) p.MoveToDisassembled();
-        if (specUI != null) specUI.Show(componentName, specs);
+        SpecUI.Instance.Show(this, componentName, specs);
     }
 
     public void Assemble()
@@ -56,6 +53,6 @@ public class ComponentController : MonoBehaviour
         if (!IsDisassembled) return;
         IsDisassembled = false;
         foreach (var p in parts) p.MoveToAssembled();
-        if (specUI != null) specUI.Hide();
+        SpecUI.Instance.Hide(this);
     }
 }
